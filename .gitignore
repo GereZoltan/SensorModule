@@ -1,3 +1,10 @@
+# CCS specific
+Debug/
+Release/
+config/
+.launches/
+.xdchelp
+
 # Prerequisites
 *.d
 

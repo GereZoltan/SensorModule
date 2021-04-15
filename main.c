@@ -16,6 +16,10 @@
 
 #include "UART.h"
 #include "NTC.h"
+#include "NTC_LUT.h"
+
+// #define DEBUGMSG
+#define UARTCONSOLE
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -23,7 +27,7 @@ typedef struct {
     int ID;
     char sensorType;                // 'T'emp, 'H'umidity, 'P'ressure
     char sensorUnit;                // 'C'elsius, 'R'H, 'P'ascal
-    unsigned int sensorAddress;     // 0 - Onboard NTC, 0x03 - 0x77 - I2C address of sensor
+    unsigned int sensorAddress;     // 0 - On board NTC, 0x03 - 0x77 - I2C address of sensor
     unsigned int slaveAddress;      // I2C slave address toward controller
     float scale;                    // Raw-to-real multiplier
     float offset;                   // Raw-to-real addition
@@ -205,12 +209,15 @@ void I2CSlaveInit(unsigned int id, unsigned int sa)
 int main(void)
 {
 //    char input[16];
-    char reading[7];
+    char reading[10];
     unsigned int rawTemp;
+    int Temp;
+    float ADCVolt;
+    float RNTC;
 
     WDTCTL = WDTPW | WDTHOLD;	// stop watchdog timer
 
-    // Leds: PJ.0 PJ.1 PJ.2 PJ.3 P3.4 P3.5 P3.6 P3.7
+    // LEDs: PJ.0 PJ.1 PJ.2 PJ.3 P3.4 P3.5 P3.6 P3.7
     // NTC: P1.4
     // Switches: P4.0 P4.1
 
@@ -223,14 +230,19 @@ int main(void)
     Channel0.offset = 0.0;
 
     SystemInit();                           // Init the Board
-    UARTInit();                             // Init UART interface
     I2CSlaveInit(0, Channel0.slaveAddress);                         // Init I2C interface
 
+#ifdef UARTCONSOLE
+    UARTInit();                             // Init UART interface
     Send("SensorModule\r\nFIRMWARE Version 0.1\r\n");
+#endif
+
 //    Receive(input, 16);
 //    Send("\r\nReceived: ");
 //    Send(input);
 //    Send("\r\n");
+
+//    UART Configuration: P2.0 TX, P2.1 RX, 9600 8N1
 
     // Clear LEDs
     PJOUT &= ~(BIT0 + BIT1 + BIT2 + BIT3);
@@ -246,16 +258,41 @@ int main(void)
         LongDelay();
 
         rawTemp = MeasureTemp();
+        ADCVolt = ((float)rawTemp * 3.6 / 1023.0);
+        RNTC = ADCVolt / ((3.6 - ADCVolt) / 470000.0);
+        Temp = LookUpTEMP((long int)RNTC);
 
+        Ch0Value = (int)(((float) Temp * Channel0.scale) + Channel0.offset);       // Apply linear calibration
+
+#ifdef UARTCONSOLE
+#ifdef DEBUGMSG
+        Send("ADC reading: ");
         snprintf(reading, 7, "%d", rawTemp);
         Send(reading);
         Send("\t");
 
-        Ch0Value = (int)((((float) rawTemp * Channel0.scale) + Channel0.offset) * 256 - 32768 );       // Measure ADC and calculate temperature
-
-        snprintf(reading, 7, "%d", Ch0Value);
+        Send("ADC Voltage: ");
+        ADCVolt = ADCVolt * 1000;
+        snprintf(reading, 10, "%d", (int)ADCVolt);
         Send(reading);
-        Send("\r\n");
+        Send(" mV\t");
+
+        Send("NTC resistance: ");
+        snprintf(reading, 10, "%d", (int)(RNTC / 1000));
+        Send(reading);
+        snprintf(reading, 10, "%d", (int)(RNTC % 1000));
+        Send(reading);
+        Send(" Ohm\r\n");
+#endif
+
+        Send("Temperature: ");
+        snprintf(reading, 10, "%d", Temp / 100);
+        Send(reading);
+        Send(".");
+        snprintf(reading, 10, "%d", Temp % 100);
+        Send(reading);
+        Send(" C\r\n");
+#endif
     }
 
     // return 0;

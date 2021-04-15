@@ -57,12 +57,12 @@ void SetupThermistor(void)
 
     // Configure ADC
     ADC10CTL0 &= ~ADC10ENC;
-    ADC10CTL0 = ADC10SHT_7 + ADC10ON;        // ADC10ON, S&H=192 ADC clks
+    ADC10CTL0 = ADC10SHT_7 + ADC10ON;        // ADC10ON, S&H=192 ADC clocks
     // ADCCLK = MODOSC = 5MHz
     ADC10CTL1 = ADC10SHS_0 + ADC10SHP + ADC10SSEL_0;
     ADC10CTL2 = ADC10RES;                    // 10-bit conversion results
     ADC10MCTL0 = ADC10INCH_4;                // A4 ADC input select; Vref=AVCC
-    ADC10IE = ADC10IE0;                    // Enable ADC conv complete interrupt
+    ADC10IE = ADC10IE0;                    // Enable ADC conversion complete interrupt
 }
 
 void ShutDownTherm(void)
